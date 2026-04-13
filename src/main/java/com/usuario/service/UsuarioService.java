@@ -1,25 +1,30 @@
 package com.usuario.service;
 
 import com.usuario.domain.Perfil;
-import com.usuario.dto.TokenResponseDTO;
-import com.usuario.dto.UsuarioCadastroDTO;
-import com.usuario.dto.UsuarioLoginDTO;
-import com.usuario.dto.UsuarioResponseDTO;
+import com.usuario.dto.*;
+import com.usuario.entity.HistoricoGamificacao;
 import com.usuario.entity.Usuario;
+import com.usuario.repository.HistoricoGamificacaoRepository;
 import com.usuario.repository.UsuarioRepository;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 public class UsuarioService {
     private final UsuarioRepository repository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final HistoricoGamificacaoRepository historicoRepository;
 
-    public UsuarioService(UsuarioRepository repository, PasswordEncoder passwordEncoder, JwtService jwtService) {
+    public UsuarioService(UsuarioRepository repository, PasswordEncoder passwordEncoder, JwtService jwtService, HistoricoGamificacaoRepository historicoRepository) {
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.historicoRepository = historicoRepository;
     }
 
     public UsuarioResponseDTO registrarCidadao(UsuarioCadastroDTO dto) {
@@ -63,5 +68,51 @@ public class UsuarioService {
 
         // 4. Devolve o token
         return new TokenResponseDTO(token);
+    }
+
+    public PerfilUsuarioDTO obterMeuPerfil() {
+        // 1. Puxa o usuário que foi autenticado pelo SecurityFilter
+        Usuario usuarioAutenticado = (Usuario) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+        // 2. Busca no banco de dados para garantir que pegamos os pontos e o histórico mais recentes
+        Usuario usuario = repository.findById(usuarioAutenticado.getId())
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
+
+        // 3. Converte a lista de entidades de histórico para DTOs
+        List<HistoricoGamificacaoDTO> historicoDTO = usuario.getHistoricoGamificacao().stream()
+                .map(h -> new HistoricoGamificacaoDTO(
+                        h.getPontosAlterados(),
+                        h.getDescricaoEvento(),
+                        h.getDataEvento()
+                )).toList();
+
+        // 4. Monta e devolve o perfil completo
+        return new PerfilUsuarioDTO(
+                usuario.getId(),
+                usuario.getNome(),
+                usuario.getEmail(),
+                usuario.getPerfil().name(),
+                usuario.getPontosReputacao(),
+                historicoDTO
+        );
+    }
+
+    @Transactional // Garante que as duas operações de banco (update e insert) ocorram juntas
+    public void adicionarPontos(PontuacaoRequestDTO dto) {
+        // 1. Busca o usuário
+        Usuario usuario = repository.findById(dto.getUsuarioId())
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
+
+        // 2. Atualiza o saldo total de reputação
+        usuario.setPontosReputacao(usuario.getPontosReputacao() + dto.getPontos());
+        repository.save(usuario);
+
+        // 3. Cria e salva o registro do histórico
+        HistoricoGamificacao historico = new HistoricoGamificacao();
+        historico.setUsuario(usuario);
+        historico.setPontosAlterados(dto.getPontos());
+        historico.setDescricaoEvento(dto.getDescricao());
+
+        historicoRepository.save(historico);
     }
 }
