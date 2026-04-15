@@ -115,4 +115,21 @@ public class UsuarioService {
 
         historicoRepository.save(historico);
     }
+
+    public UsuarioResponseDTO registrarAgente(UsuarioCadastroDTO dto) {
+        if (repository.findByEmail(dto.getEmail()).isPresent()) {
+            throw new RuntimeException("E-mail já cadastrado.");
+        }
+
+        Usuario novoAgente = new Usuario();
+        novoAgente.setNome(dto.getNome());
+        novoAgente.setEmail(dto.getEmail());
+        novoAgente.setSenha(passwordEncoder.encode(dto.getSenha()));
+        novoAgente.setPerfil(Perfil.ROLE_AGENTE_PREFEITURA); // Define como Agente
+        novoAgente.setPontosReputacao(0);
+
+        Usuario salvo = repository.save(novoAgente);
+
+        return new UsuarioResponseDTO(salvo.getId(), salvo.getNome(), salvo.getEmail(), salvo.getPerfil().name());
+    }
 }

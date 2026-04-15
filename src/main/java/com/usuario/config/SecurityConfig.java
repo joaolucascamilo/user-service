@@ -26,7 +26,8 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable()) // Desabilitamos CSRF pois o JWT já protege contra isso
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/api/auth/**").permitAll() // Liberamos tudo que for login ou cadastro
+                        .requestMatchers("/api/auth/**").permitAll() // Login e Cadastro de Cidadão liberados
+                        .requestMatchers("/api/usuarios/registrar-agente").hasRole("AGENTE_PREFEITURA") // Só Agentes entram aqui
                         .anyRequest().authenticated() // Qualquer outra requisição precisará do token
                 )
         // Coloca o nosso filtro antes do filtro padrão do Spring
