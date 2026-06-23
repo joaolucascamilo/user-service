@@ -3,6 +3,8 @@ package com.usuario.entity;
 import com.usuario.domain.Perfil;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -34,7 +36,8 @@ public class Usuario {
     @Column(name = "data_cadastro")
     private LocalDateTime dataCadastro = LocalDateTime.now();
 
-    // Relacionamento 1:N com o histórico
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL)
     private List<HistoricoGamificacao> historicoGamificacao;
 }

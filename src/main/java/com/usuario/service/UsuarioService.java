@@ -11,6 +11,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
@@ -70,6 +71,7 @@ public class UsuarioService {
         return new TokenResponseDTO(token);
     }
 
+    @Transactional(readOnly = true)
     public PerfilUsuarioDTO obterMeuPerfil() {
         // 1. Puxa o usuário que foi autenticado pelo SecurityFilter
         Usuario usuarioAutenticado = (Usuario) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -79,11 +81,12 @@ public class UsuarioService {
                 .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
 
         // 3. Converte a lista de entidades de histórico para DTOs
+        DateTimeFormatter fmt = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
         List<HistoricoGamificacaoDTO> historicoDTO = usuario.getHistoricoGamificacao().stream()
                 .map(h -> new HistoricoGamificacaoDTO(
                         h.getPontosAlterados(),
                         h.getDescricaoEvento(),
-                        h.getDataEvento()
+                        h.getDataEvento() != null ? h.getDataEvento().format(fmt) : null
                 )).toList();
 
         // 4. Monta e devolve o perfil completo
