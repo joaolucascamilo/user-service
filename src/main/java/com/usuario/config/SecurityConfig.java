@@ -28,9 +28,10 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/api/auth/**").permitAll() // Login e Cadastro de Cidadão liberados
-                        .requestMatchers("/api/usuarios/registrar-agente").hasRole("AGENTE_PREFEITURA") // Só Agentes entram aqui
-                        .anyRequest().authenticated() // Qualquer outra requisição precisará do token
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
+                        .requestMatchers("/api/usuarios/registrar-agente").hasRole("AGENTE_PREFEITURA")
+                        .anyRequest().authenticated()
                 )
         // Coloca o nosso filtro antes do filtro padrão do Spring
         .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class);

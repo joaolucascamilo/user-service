@@ -1,9 +1,21 @@
 package com.usuario.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
+@Schema(description = "Dados públicos do usuário (sem senha)")
 public class UsuarioResponseDTO {
+
+    @Schema(description = "Identificador único do usuário", example = "1")
     private Long id;
+
+    @Schema(description = "Nome completo", example = "João Silva")
     private String nome;
+
+    @Schema(description = "E-mail do usuário", example = "joao.silva@email.com")
     private String email;
+
+    @Schema(description = "Perfil de acesso: ROLE_CIDADAO ou ROLE_AGENTE_PREFEITURA",
+            example = "ROLE_CIDADAO", allowableValues = {"ROLE_CIDADAO", "ROLE_AGENTE_PREFEITURA"})
     private String perfil;
 
     public UsuarioResponseDTO(Long id, String nome, String email, String perfil) {
