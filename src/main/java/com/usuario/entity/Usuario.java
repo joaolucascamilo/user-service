@@ -45,6 +45,12 @@ public class Usuario {
     @Column(name = "token_expiracao")
     private LocalDateTime tokenExpiracao;
 
+    @Column(name = "token_redefinicao_senha")
+    private String tokenRedefinicaoSenha;
+
+    @Column(name = "token_redefinicao_expiracao")
+    private LocalDateTime tokenRedefinicaoExpiracao;
+
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL)

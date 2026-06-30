@@ -132,6 +132,32 @@ public class UsuarioService {
         historicoRepository.save(historico);
     }
 
+    @Transactional
+    public void solicitarRedefinicaoSenha(String email) {
+        // Sempre retorna sucesso para nao revelar quais emails estao cadastrados
+        repository.findByEmail(email).ifPresent(usuario -> {
+            usuario.setTokenRedefinicaoSenha(UUID.randomUUID().toString());
+            usuario.setTokenRedefinicaoExpiracao(LocalDateTime.now().plusHours(1));
+            repository.save(usuario);
+            emailService.enviarRedefinicaoSenha(usuario.getEmail(), usuario.getTokenRedefinicaoSenha());
+        });
+    }
+
+    @Transactional
+    public void redefinirSenha(RedefinirSenhaDTO dto) {
+        Usuario usuario = repository.findByTokenRedefinicaoSenha(dto.getToken())
+                .orElseThrow(() -> new RuntimeException("Token de redefinicao invalido."));
+
+        if (usuario.getTokenRedefinicaoExpiracao().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("Token expirado. Solicite uma nova redefinicao de senha.");
+        }
+
+        usuario.setSenha(passwordEncoder.encode(dto.getNovaSenha()));
+        usuario.setTokenRedefinicaoSenha(null);
+        usuario.setTokenRedefinicaoExpiracao(null);
+        repository.save(usuario);
+    }
+
     public UsuarioResponseDTO registrarAgente(UsuarioCadastroDTO dto) {
         if (repository.findByEmail(dto.getEmail()).isPresent()) {
             throw new RuntimeException("E-mail já cadastrado.");

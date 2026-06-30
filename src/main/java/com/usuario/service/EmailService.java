@@ -16,6 +16,9 @@ public class EmailService {
     @Value("${app.url.base}")
     private String baseUrl;
 
+    @Value("${app.url.frontend}")
+    private String frontendUrl;
+
     public EmailService(JavaMailSender mailSender) {
         this.mailSender = mailSender;
     }
@@ -26,13 +29,32 @@ public class EmailService {
         SimpleMailMessage mensagem = new SimpleMailMessage();
         mensagem.setFrom(remetente);
         mensagem.setTo(destinatario);
-        mensagem.setSubject("Confirme seu e-mail — Infra Urbana");
+        mensagem.setSubject("Confirme seu e-mail -- Infra Urbana");
         mensagem.setText(
-                "Olá!\n\n" +
-                "Clique no link abaixo para confirmar seu endereço de e-mail e ativar sua conta:\n\n" +
+                "Ola!\n\n" +
+                "Clique no link abaixo para confirmar seu endereco de e-mail e ativar sua conta:\n\n" +
                 link + "\n\n" +
                 "O link expira em 24 horas.\n\n" +
-                "Se você não criou uma conta, ignore este e-mail."
+                "Se voce nao criou uma conta, ignore este e-mail."
+        );
+
+        mailSender.send(mensagem);
+    }
+
+    public void enviarRedefinicaoSenha(String destinatario, String token) {
+        String link = frontendUrl + "/redefinir-senha?token=" + token;
+
+        SimpleMailMessage mensagem = new SimpleMailMessage();
+        mensagem.setFrom(remetente);
+        mensagem.setTo(destinatario);
+        mensagem.setSubject("Redefinicao de senha -- Infra Urbana");
+        mensagem.setText(
+                "Ola!\n\n" +
+                "Recebemos uma solicitacao para redefinir a senha da sua conta.\n\n" +
+                "Clique no link abaixo para criar uma nova senha:\n\n" +
+                link + "\n\n" +
+                "O link expira em 1 hora.\n\n" +
+                "Se voce nao solicitou a redefinicao de senha, ignore este e-mail. Sua senha permanece a mesma."
         );
 
         mailSender.send(mensagem);

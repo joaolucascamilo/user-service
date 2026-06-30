@@ -1,5 +1,7 @@
 package com.usuario.controller;
 
+import com.usuario.dto.EsqueciSenhaDTO;
+import com.usuario.dto.RedefinirSenhaDTO;
 import com.usuario.dto.TokenResponseDTO;
 import com.usuario.dto.UsuarioCadastroDTO;
 import com.usuario.dto.UsuarioLoginDTO;
@@ -66,5 +68,30 @@ public class AuthController {
     public ResponseEntity<String> verificarEmail(@RequestParam String token) {
         usuarioService.verificarEmail(token);
         return ResponseEntity.ok("E-mail verificado com sucesso! Agora você pode fazer login.");
+    }
+
+    @PostMapping("/esqueci-senha")
+    @SecurityRequirements
+    @Operation(
+        summary = "Solicitar redefinição de senha",
+        description = "Envia um e-mail com link para redefinição de senha. Retorna 200 mesmo se o e-mail não estiver cadastrado, para não expor quais e-mails existem no sistema."
+    )
+    @ApiResponse(responseCode = "200", description = "Se o e-mail estiver cadastrado, um link de redefinição foi enviado")
+    public ResponseEntity<String> esqueciSenha(@RequestBody EsqueciSenhaDTO dto) {
+        usuarioService.solicitarRedefinicaoSenha(dto.getEmail());
+        return ResponseEntity.ok("Se este e-mail estiver cadastrado, você receberá as instruções em breve.");
+    }
+
+    @PostMapping("/redefinir-senha")
+    @SecurityRequirements
+    @Operation(
+        summary = "Redefinir senha",
+        description = "Redefine a senha do usuário usando o token recebido por e-mail. O token expira em 1 hora."
+    )
+    @ApiResponse(responseCode = "200", description = "Senha redefinida com sucesso")
+    @ApiResponse(responseCode = "400", description = "Token inválido ou expirado")
+    public ResponseEntity<String> redefinirSenha(@RequestBody RedefinirSenhaDTO dto) {
+        usuarioService.redefinirSenha(dto);
+        return ResponseEntity.ok("Senha redefinida com sucesso! Agora você pode fazer login com a nova senha.");
     }
 }
