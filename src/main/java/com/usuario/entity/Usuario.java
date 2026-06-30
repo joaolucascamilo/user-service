@@ -36,6 +36,15 @@ public class Usuario {
     @Column(name = "data_cadastro")
     private LocalDateTime dataCadastro = LocalDateTime.now();
 
+    @Column(name = "email_verificado", nullable = false, columnDefinition = "boolean not null default false")
+    private Boolean emailVerificado = false;
+
+    @Column(name = "token_verificacao")
+    private String tokenVerificacao;
+
+    @Column(name = "token_expiracao")
+    private LocalDateTime tokenExpiracao;
+
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL)

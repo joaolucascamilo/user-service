@@ -11,8 +11,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class UsuarioService {
@@ -20,12 +22,15 @@ public class UsuarioService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final HistoricoGamificacaoRepository historicoRepository;
+    private final EmailService emailService;
 
-    public UsuarioService(UsuarioRepository repository, PasswordEncoder passwordEncoder, JwtService jwtService, HistoricoGamificacaoRepository historicoRepository) {
+    public UsuarioService(UsuarioRepository repository, PasswordEncoder passwordEncoder, JwtService jwtService,
+                          HistoricoGamificacaoRepository historicoRepository, EmailService emailService) {
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.historicoRepository = historicoRepository;
+        this.emailService = emailService;
     }
 
     public UsuarioResponseDTO registrarCidadao(UsuarioCadastroDTO dto) {
@@ -36,14 +41,16 @@ public class UsuarioService {
         Usuario novoUsuario = new Usuario();
         novoUsuario.setNome(dto.getNome());
         novoUsuario.setEmail(dto.getEmail());
-
-        // CRIPTOGRAFIA DA SENHA: O BCrypt gera o hash seguro aqui
         novoUsuario.setSenha(passwordEncoder.encode(dto.getSenha()));
-
         novoUsuario.setPerfil(Perfil.ROLE_CIDADAO);
-        novoUsuario.setPontosReputacao(0); // Começa com 0 pontos na gamificação
+        novoUsuario.setPontosReputacao(0);
+        novoUsuario.setEmailVerificado(false);
+        novoUsuario.setTokenVerificacao(UUID.randomUUID().toString());
+        novoUsuario.setTokenExpiracao(LocalDateTime.now().plusHours(24));
 
         Usuario usuarioSalvo = repository.save(novoUsuario);
+
+        emailService.enviarVerificacao(usuarioSalvo.getEmail(), usuarioSalvo.getTokenVerificacao());
 
         return new UsuarioResponseDTO(
                 usuarioSalvo.getId(),
@@ -53,34 +60,44 @@ public class UsuarioService {
         );
     }
 
-    public TokenResponseDTO autenticar(UsuarioLoginDTO dto) {
+    @Transactional
+    public void verificarEmail(String token) {
+        Usuario usuario = repository.findByTokenVerificacao(token)
+                .orElseThrow(() -> new RuntimeException("Token de verificação inválido."));
 
-        Usuario usuario = repository.findByEmail(dto.getEmail())
-                .orElseThrow(() -> new RuntimeException("Credenciais inválidas.")); // E-mail não encontrado
-
-        // Verificação se a senha enviada bate com a senha criptografada no banco
-        // O método matches() do BCrypt faz essa função com segurança
-        if (!passwordEncoder.matches(dto.getSenha(), usuario.getSenha())) {
-            throw new RuntimeException("Credenciais inválidas."); // Senha errada
+        if (usuario.getTokenExpiracao().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("Token de verificação expirado. Solicite um novo cadastro.");
         }
 
-        // Gera o Token JWT.
-        String token = jwtService.gerarToken(usuario.getEmail(), usuario.getPerfil().name(), usuario.getId());
+        usuario.setEmailVerificado(true);
+        usuario.setTokenVerificacao(null);
+        usuario.setTokenExpiracao(null);
+        repository.save(usuario);
+    }
 
-        // 4. Devolve o token
+    public TokenResponseDTO autenticar(UsuarioLoginDTO dto) {
+        Usuario usuario = repository.findByEmail(dto.getEmail())
+                .orElseThrow(() -> new RuntimeException("Credenciais inválidas."));
+
+        if (!passwordEncoder.matches(dto.getSenha(), usuario.getSenha())) {
+            throw new RuntimeException("Credenciais inválidas.");
+        }
+
+        if (!usuario.getEmailVerificado()) {
+            throw new RuntimeException("E-mail não verificado. Verifique sua caixa de entrada e clique no link de confirmação.");
+        }
+
+        String token = jwtService.gerarToken(usuario.getEmail(), usuario.getPerfil().name(), usuario.getId());
         return new TokenResponseDTO(token);
     }
 
     @Transactional(readOnly = true)
     public PerfilUsuarioDTO obterMeuPerfil() {
-        // 1. Puxa o usuário que foi autenticado pelo SecurityFilter
         Usuario usuarioAutenticado = (Usuario) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
-        // 2. Busca no banco de dados para garantir que pegamos os pontos e o histórico mais recentes
         Usuario usuario = repository.findById(usuarioAutenticado.getId())
                 .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
 
-        // 3. Converte a lista de entidades de histórico para DTOs
         DateTimeFormatter fmt = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
         List<HistoricoGamificacaoDTO> historicoDTO = usuario.getHistoricoGamificacao().stream()
                 .map(h -> new HistoricoGamificacaoDTO(
@@ -89,7 +106,6 @@ public class UsuarioService {
                         h.getDataEvento() != null ? h.getDataEvento().format(fmt) : null
                 )).toList();
 
-        // 4. Monta e devolve o perfil completo
         return new PerfilUsuarioDTO(
                 usuario.getId(),
                 usuario.getNome(),
@@ -100,17 +116,14 @@ public class UsuarioService {
         );
     }
 
-    @Transactional // Garante que as duas operações de banco (update e insert) ocorram juntas
+    @Transactional
     public void adicionarPontos(PontuacaoRequestDTO dto) {
-        // 1. Busca o usuário
         Usuario usuario = repository.findById(dto.getUsuarioId())
                 .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
 
-        // 2. Atualiza o saldo total de reputação
         usuario.setPontosReputacao(usuario.getPontosReputacao() + dto.getPontos());
         repository.save(usuario);
 
-        // 3. Cria e salva o registro do histórico
         HistoricoGamificacao historico = new HistoricoGamificacao();
         historico.setUsuario(usuario);
         historico.setPontosAlterados(dto.getPontos());
@@ -128,10 +141,15 @@ public class UsuarioService {
         novoAgente.setNome(dto.getNome());
         novoAgente.setEmail(dto.getEmail());
         novoAgente.setSenha(passwordEncoder.encode(dto.getSenha()));
-        novoAgente.setPerfil(Perfil.ROLE_AGENTE_PREFEITURA); // Define como Agente
+        novoAgente.setPerfil(Perfil.ROLE_AGENTE_PREFEITURA);
         novoAgente.setPontosReputacao(0);
+        novoAgente.setEmailVerificado(false);
+        novoAgente.setTokenVerificacao(UUID.randomUUID().toString());
+        novoAgente.setTokenExpiracao(LocalDateTime.now().plusHours(24));
 
         Usuario salvo = repository.save(novoAgente);
+
+        emailService.enviarVerificacao(salvo.getEmail(), salvo.getTokenVerificacao());
 
         return new UsuarioResponseDTO(salvo.getId(), salvo.getNome(), salvo.getEmail(), salvo.getPerfil().name());
     }

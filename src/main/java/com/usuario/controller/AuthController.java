@@ -49,9 +49,22 @@ public class AuthController {
     )
     @ApiResponse(responseCode = "200", description = "Autenticação bem-sucedida, token JWT retornado",
         content = @Content(schema = @Schema(implementation = TokenResponseDTO.class)))
-    @ApiResponse(responseCode = "401", description = "Credenciais inválidas")
+    @ApiResponse(responseCode = "401", description = "Credenciais inválidas ou e-mail não verificado")
     public ResponseEntity<TokenResponseDTO> login(@RequestBody UsuarioLoginDTO dto) {
         TokenResponseDTO response = usuarioService.autenticar(dto);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/verificar-email")
+    @SecurityRequirements
+    @Operation(
+        summary = "Verificar e-mail",
+        description = "Confirma o endereço de e-mail do usuário através do token enviado por e-mail após o cadastro."
+    )
+    @ApiResponse(responseCode = "200", description = "E-mail verificado com sucesso")
+    @ApiResponse(responseCode = "400", description = "Token inválido ou expirado")
+    public ResponseEntity<String> verificarEmail(@RequestParam String token) {
+        usuarioService.verificarEmail(token);
+        return ResponseEntity.ok("E-mail verificado com sucesso! Agora você pode fazer login.");
     }
 }
