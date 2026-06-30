@@ -133,6 +133,19 @@ public class UsuarioService {
     }
 
     @Transactional
+    public void reenviarVerificacao(String email) {
+        // Sempre retorna sucesso para nao revelar quais emails estao cadastrados
+        repository.findByEmail(email)
+                .filter(usuario -> !usuario.getEmailVerificado())
+                .ifPresent(usuario -> {
+                    usuario.setTokenVerificacao(UUID.randomUUID().toString());
+                    usuario.setTokenExpiracao(LocalDateTime.now().plusHours(24));
+                    repository.save(usuario);
+                    emailService.enviarVerificacao(usuario.getEmail(), usuario.getTokenVerificacao());
+                });
+    }
+
+    @Transactional
     public void solicitarRedefinicaoSenha(String email) {
         // Sempre retorna sucesso para nao revelar quais emails estao cadastrados
         repository.findByEmail(email).ifPresent(usuario -> {

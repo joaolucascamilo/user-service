@@ -70,6 +70,18 @@ public class AuthController {
         return ResponseEntity.ok("E-mail verificado com sucesso! Agora você pode fazer login.");
     }
 
+    @PostMapping("/reenviar-verificacao")
+    @SecurityRequirements
+    @Operation(
+        summary = "Reenviar e-mail de verificação",
+        description = "Gera um novo token e reenvia o e-mail de confirmação de cadastro. Retorna 200 mesmo se o e-mail não estiver cadastrado ou já estiver verificado, para não expor quais e-mails existem no sistema."
+    )
+    @ApiResponse(responseCode = "200", description = "Se o e-mail estiver cadastrado e pendente de verificação, um novo link foi enviado")
+    public ResponseEntity<String> reenviarVerificacao(@RequestBody EsqueciSenhaDTO dto) {
+        usuarioService.reenviarVerificacao(dto.getEmail());
+        return ResponseEntity.ok("Se este e-mail estiver cadastrado e pendente de verificação, você receberá um novo link em breve.");
+    }
+
     @PostMapping("/esqueci-senha")
     @SecurityRequirements
     @Operation(

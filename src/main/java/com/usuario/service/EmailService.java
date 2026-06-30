@@ -1,12 +1,17 @@
 package com.usuario.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 @Service
 public class EmailService {
+
+    private static final Logger logger = LoggerFactory.getLogger(EmailService.class);
 
     private final JavaMailSender mailSender;
 
@@ -38,7 +43,12 @@ public class EmailService {
                 "Se voce nao criou uma conta, ignore este e-mail."
         );
 
-        mailSender.send(mensagem);
+        try {
+            mailSender.send(mensagem);
+        } catch (MailException e) {
+            logger.error("Falha ao enviar e-mail de verificacao para {}", destinatario, e);
+            throw e;
+        }
     }
 
     public void enviarRedefinicaoSenha(String destinatario, String token) {
@@ -57,6 +67,11 @@ public class EmailService {
                 "Se voce nao solicitou a redefinicao de senha, ignore este e-mail. Sua senha permanece a mesma."
         );
 
-        mailSender.send(mensagem);
+        try {
+            mailSender.send(mensagem);
+        } catch (MailException e) {
+            logger.error("Falha ao enviar e-mail de redefinicao de senha para {}", destinatario, e);
+            throw e;
+        }
     }
 }
